@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>MLB Ballpark Pitch Type Analysis</title>
+	<style>
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			font-family: Arial, sans-serif;
+			color: #000;
+			background: #fff;
+			line-height: 1.6;
+			padding: 2rem;
+		}
+
+		main {
+			max-width: 900px;
+			margin: 0 auto;
+		}
+
+		h1 {
+			font-size: 2.2rem;
+			margin: 1.5rem 0 0.5rem;
+			border-bottom: 2px solid #000;
+			padding-bottom: 0.5rem;
+		}
+
+		h2 {
+			font-size: 1.6rem;
+			margin: 2.5rem 0 1rem;
+			border-bottom: 1px solid #000;
+			padding-bottom: 0.3rem;
+		}
+
+		h3 {
+			font-size: 1.1rem;
+			margin: 1.3rem 0 0.6rem;
+		}
+
+		p {
+			margin: 0.8rem 0;
+		}
+
+		ul {
+			margin: 0.8rem 0;
+			padding-left: 2rem;
+		}
+
+		li {
+			margin: 0.5rem 0;
+		}
+
+		strong {
+			font-weight: bold;
+		}
+
+		.header {
+			margin-bottom: 2.5rem;
+		}
+
+		.meta {
+			margin: 1.5rem 0;
+			padding-left: 1rem;
+			border-left: 3px solid #000;
+		}
+
+		.meta div {
+			margin: 0.5rem 0;
+		}
+
+		.meta-label {
+			font-weight: bold;
+			display: inline;
+		}
+
+		.section {
+			margin: 2.5rem 0;
+			padding: 1.2rem;
+			border: 1px solid #000;
+		}
+
+		.callout {
+			margin: 1rem 0;
+			padding: 1rem;
+			border-left: 3px solid #000;
+			background: #f5f5f5;
+		}
+
+		.stats-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 1rem;
+			margin: 1rem 0;
+		}
+
+		.stat-box {
+			padding: 0.8rem;
+			border: 1px solid #ccc;
+			background: #fafafa;
+		}
+
+		.stat-label {
+			font-size: 0.9rem;
+			color: #666;
+			margin-bottom: 0.3rem;
+		}
+
+		.stat-value {
+			font-size: 1.4rem;
+			font-weight: bold;
+		}
+
+		.park-finding {
+			margin: 1rem 0;
+			padding: 0.8rem;
+			border-left: 3px solid #333;
+			background: #f9f9f9;
+		}
+
+		.park-name {
+			font-weight: bold;
+			font-size: 1.05rem;
+		}
+
+		.park-deviation {
+			color: #555;
+			font-size: 0.95rem;
+			margin-top: 0.3rem;
+		}
+
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 1rem 0;
+		}
+
+		th, td {
+			border: 1px solid #ccc;
+			padding: 0.7rem;
+			text-align: left;
+		}
+
+		th {
+			background: #f0f0f0;
+			font-weight: bold;
+		}
+
+		@media (max-width: 640px) {
+			body {
+				padding: 1rem;
+			}
+
+			h1 {
+				font-size: 1.5rem;
+			}
+
+			h2 {
+				font-size: 1.2rem;
+			}
+
+			.stats-grid {
+				grid-template-columns: 1fr;
+			}
+		}
+	</style>
+</head>
+<body>
+	<main>
+		<div class="header">
+			<h1>MLB Ballpark Pitch Type Analysis</h1>
+			<p>Pitch Type, Swing Outcome, and Contact Quality Across Parks</p>
+
+			<div class="meta">
+				<div><span class="meta-label">Data Window:</span> 2023 through 2025</div>
+				<div><span class="meta-label">Parks:</span> 29 MLB ballparks (Athletics excluded)</div>
+				<div><span class="meta-label">Sample:</span> 174,000 swings total (2,000 per park per season, pooled across 3 years)</div>
+				<div><span class="meta-label">Core Question:</span> Do park environments shape pitch mix and contact quality?</div>
+			</div>
+
+			<p>This write-up follows the notebook sequence for the project: ingesting Statcast swings, setting league baselines, building Swing Output Value, comparing park-level pitch and swing patterns, and clustering parks into data-driven archetypes.</p>
+		</div>
+
+		<div class="section">
+			<h2>Project Overview</h2>
+			<h3>Research Question</h3>
+			<p>Which aspects of a ballpark environment matter most: what pitch types get thrown, what happens on the swing, or how good the contact is when the ball is put in play?</p>
+
+			<h3>Write-Up Structure</h3>
+			<p>The page tracks the notebook order so the reader can move from data construction to descriptive baselines, then into the three analytical layers and the final park archetypes.</p>
+		</div>
+
+		<div class="section">
+			<h2>1. Data Pipeline</h2>
+			<p><strong>Notebook 01</strong></p>
+			<div class="callout">
+				Pull Statcast month by month, classify swing events, sample 2,000 swings per park per season, and save a pooled analysis table.
+			</div>
+
+			<h3>Sample Construction</h3>
+			<div class="stats-grid">
+				<div class="stat-box">
+					<div class="stat-label">Final Dataset Size</div>
+					<div class="stat-value">174,000 swings</div>
+				</div>
+				<div class="stat-box">
+					<div class="stat-label">Parks Included</div>
+					<div class="stat-value">29 of 30</div>
+				</div>
+				<div class="stat-box">
+					<div class="stat-label">Swings per Park</div>
+					<div class="stat-value">2,000 per season</div>
+				</div>
+				<div class="stat-box">
+					<div class="stat-label">Seasons</div>
+					<div class="stat-value">2023, 2024, 2025</div>
+				</div>
+			</div>
+
+			<h3>Classification Logic</h3>
+			<ul>
+				<li><strong>Pitch Categories:</strong> Fastball, Breaking, Offspeed</li>
+				<li><strong>Swing Outcomes:</strong> Whiff (swing and miss), Foul (contact, out of play), In Play (enters field)</li>
+				<li><strong>Monthly retrieval loop:</strong> 6 months × 3 seasons, combined park-season slices, validated final row count</li>
+			</ul>
+		</div>
+
+		<div class="section">
+			<h2>2. Exploratory Analysis</h2>
+			<p><strong>Notebook 02</strong></p>
+
+			<h3>League Baselines Established</h3>
+			<p>Working dataset: 173,137 swings (after removing unclassified pitches)</p>
+
+			<table>
+				<tr>
+					<th>Pitch Category</th>
+					<th>Count</th>
+					<th>% of Swings</th>
+					<th>Interpretation</th>
+				</tr>
+				<tr>
+					<td>Fastball</td>
+					<td>96,689</td>
+					<td>55.8%</td>
+					<td>Dominant pitch type — foundation of MLB pitch mix</td>
+				</tr>
+				<tr>
+					<td>Breaking</td>
+					<td>51,650</td>
+					<td>29.8%</td>
+					<td>Second most common — slider and curveball-heavy</td>
+				</tr>
+				<tr>
+					<td>Offspeed</td>
+					<td>24,798</td>
+					<td>14.3%</td>
+					<td>Changeups, splitters, rare pitches</td>
+				</tr>
+			</table>
+
+			<h3>Swing Outcome Distribution</h3>
+			<p>Every swing has one of three mutually exclusive outcomes:</p>
+			<div class="stats-grid">
+				<div class="stat-box">
+					<div class="stat-label">Foul Balls</div>
+					<div class="stat-value">37.7%</div>
+					<p>Contact, ball does not enter play</p>
+				</div>
+				<div class="stat-box">
+					<div class="stat-label">In Play</div>
+					<div class="stat-value">36.8%</div>
+					<p>Contact, ball enters field of play</p>
+				</div>
+				<div class="stat-box">
+					<div class="stat-label">Whiff</div>
+					<div class="stat-value">25.5%</div>
+					<p>Swing and miss</p>
+				</div>
+			</div>
+
+			<h3>Key EDA Finding</h3>
+			<p>Fastballs generate drastically lower whiff rates than breaking or offspeed pitches — but all three categories show distinct outcome profiles, setting the baseline against which park-level comparisons will be made.</p>
+
+			<h3>SOV-Eligible Sample</h3>
+			<p><strong>In-play observations with both EV and LA present:</strong> 63,625 swings (36.8% of all swings). Exit velocity and launch angle distributions are well-behaved, with EV centered at 91.5 mph (median) and LA at 14° (median), reflecting the modern MLB offensive philosophy of targeting the line-drive sweet spot.</p>
+		</div>
+
+		<div class="section">
+			<h2>3. Swing Output Value Construction</h2>
+			<p><strong>Notebook 03</strong></p>
+
+			<div class="callout">
+				SOV is the project's contact-quality scale: it scores balls in play by proximity to an elite-contact zone in EV/LA space, then ranks and rescales those scores to a common interval.
+			</div>
+
+			<h3>Elite Contact Target Definition</h3>
+			<table>
+				<tr>
+					<th>Parameter</th>
+					<th>Value</th>
+					<th>Rationale</th>
+				</tr>
+				<tr>
+					<td>Exit Velocity Target</td>
+					<td>105 mph</td>
+					<td>Well into Statcast barrel territory</td>
+				</tr>
+				<tr>
+					<td>Launch Angle Target</td>
+					<td>28°</td>
+					<td>Center of home-run producing sweet spot</td>
+				</tr>
+				<tr>
+					<td>EV Scale Factor</td>
+					<td>14.85 mph (sample stdev)</td>
+					<td>Normalizes EV to equal footing with LA</td>
+				</tr>
+				<tr>
+					<td>LA Scale Factor</td>
+					<td>28.54° (sample stdev)</td>
+					<td>Normalizes LA to equal footing with EV</td>
+				</tr>
+			</table>
+
+			<h3>Scoring Methodology</h3>
+			<ul>
+				<li><strong>2D Gaussian Proximity:</strong> Every in-play observation scored based on distance to the 105 mph / 28° target</li>
+				<li><strong>Empirical Percentile Ranking:</strong> Raw scores converted to percentile rank (0 to 1) across all 63,625 in-play observations</li>
+				<li><strong>Linear Mapping to [-1, +1]:</strong> Percentile converted to SOV scale using formula: SOV = 2p - 1</li>
+			</ul>
+
+			<h3>SOV Interpretation</h3>
+			<table>
+				<tr>
+					<th>SOV Value</th>
+					<th>Percentile</th>
+					<th>Contact Profile</th>
+				</tr>
+				<tr>
+					<td>+1.0</td>
+					<td>100th</td>
+					<td>Elite contact (105 mph / 28°)</td>
+				</tr>
+				<tr>
+					<td>0.0</td>
+					<td>50th</td>
+					<td>Median ball in play</td>
+				</tr>
+				<tr>
+					<td>-1.0</td>
+					<td>0th</td>
+					<td>Weakest contact in sample</td>
+				</tr>
+			</table>
+
+			<p><strong>Key Insight:</strong> SOV is uniform by construction across all swings. The analytical power emerges in park-level deviations from that uniform baseline — which parks produce higher or lower SOV scores than league average?</p>
+		</div>
+
+		<div class="section">
+			<h2>4. Pitch Type Frequency</h2>
+			<p><strong>Notebook 04</strong></p>
+
+			<div class="callout">
+				This layer asks whether parks change the mix of pitches being thrown, first at the broad category level and then at the pitch-code level for the most distinctive parks.
+			</div>
+
+			<h3>Layer 1 Finding: 23 of 29 Parks Deviate Significantly</h3>
+			<p>Chi-square goodness-of-fit test against league baseline: <strong>23 of 29 parks (79%) show statistically significant pitch-type deviations (p &lt; 0.05)</strong>. Only 6 parks are indistinguishable from league average: BOS, SEA, AZ, CIN, SD, PHI.</p>
+
+			<h3>Focus Parks — Layer 2 Analysis (Pitch Codes)</h3>
+			<p>Five parks with the largest chi-square magnitudes examined at individual pitch level:</p>
+
+			<div class="park-finding">
+				<div class="park-name">Milwaukee Brewers (American Family Field)</div>
+				<div class="park-deviation">Chi-square: 95.99 — Largest deviation in sample</div>
+				<p><strong>Fastball +6.26 pp</strong> above league average. Level 2 reveals the story: Sinker +3.63 pp and Cutter +3.35 pp. Milwaukee throws hard and heavy — emphasizing late-movement fastballs known to generate weak contact, while slider usage sits below average. Organizational velocity identity.</p>
+			</div>
+
+			<div class="park-finding">
+				<div class="park-name">St. Louis Cardinals (Busch Stadium)</div>
+				<div class="park-deviation">Chi-square: 60.21 — Second largest</div>
+				<p><strong>FF → SI Substitution Pattern.</strong> Four-seam fastballs actively replaced by sinkers: FF -3.71 pp, SI +5.25 pp. Ground-ball philosophy at Busch Stadium — a deliberate pitch recipe not a simple volume shift.</p>
+			</div>
+
+			<div class="park-finding">
+				<div class="park-name">Atlanta Braves (Truist Park)</div>
+				<div class="park-deviation">Chi-square: 54.48</div>
+				<p><strong>Slider +4.94 pp</strong> above league average — most spin-heavy attack profile among focus parks. Truist Park pitchers attacking with breaking balls above all else. Stark contrast to Milwaukee's ground-ball identity.</p>
+			</div>
+
+			<div class="park-finding">
+				<div class="park-name">Pittsburgh Pirates (PNC Park)</div>
+				<div class="park-deviation">Chi-square: 43.53</div>
+				<p><strong>CH → SL Substitution.</strong> Changeup usage down 2.29 pp, slider up 2.50 pp. Breaking-ball preferred over offspeed at PNC.</p>
+			</div>
+
+			<div class="park-finding">
+				<div class="park-name">Baltimore Orioles (Camden Yards)</div>
+				<div class="park-deviation">Chi-square: 41.08</div>
+				<p><strong>SL → FC Substitution.</strong> Slider down 3.40 pp, cutter up 2.54 pp. Pitchers staying hard with late movement rather than spinning. (Note: BAL flagged for elevated left-handed batter composition — handedness component possible.)</p>
+			</div>
+
+			<h3>Key Insight</h3>
+			<p>The most compelling signal is <strong>substitution patterns</strong>, not volume increases. These parks show distinct pitching recipes: ground balls vs. spin, late movement vs. breaking, hard fastballs vs. soft offspeed. They are not parks throwing more of everything — they are parks with deliberate, organized pitching approaches.</p>
+		</div>
+
+		<div class="section">
+			<h2>5. Swing Outcomes by Pitch</h2>
+			<p><strong>Notebook 05</strong></p>
+
+			<p>The second layer checks whether parks alter what happens after the swing: whiffs, fouls, and balls in play, overall and by pitch type. This answers: Do Milwaukee's sinkers produce different whiff rates than league average? Does Atlanta's slider dominance affect foul-ball frequency?</p>
+
+			<h3>Analysis Approach</h3>
+			<ul>
+				<li><strong>Overall outcome rates:</strong> Compare each park against the league baseline for swing outcomes (25.5% whiff, 37.7% foul, 36.8% in-play)</li>
+				<li><strong>Pitch-specific effects:</strong> See which park and pitch combinations move the needle most on outcome rates</li>
+			</ul>
+		</div>
+
+		<div class="section">
+			<h2>6. Contact Quality by Pitch</h2>
+			<p><strong>Notebook 06</strong></p>
+
+			<p>This is the payoff notebook: it brings SOV back in, first to compare park-level mean contact quality overall and then by pitch type with confidence intervals. When batters do make contact in Milwaukee or Atlanta, is the quality systematically different?</p>
+
+			<h3>Key Steps</h3>
+			<ul>
+				<li><strong>League reference by pitch type:</strong> Set the benchmark SOV for each pitch category before comparing parks to one another</li>
+				<li><strong>Mean SOV by park:</strong> Identify which environments suppress or improve contact quality</li>
+				<li><strong>Statistical filtering:</strong> Keep the interpretation conservative by pairing intervals with significance checks</li>
+			</ul>
+		</div>
+
+		<div class="section">
+			<h2>7. Park Clustering</h2>
+			<p><strong>Notebook 07</strong></p>
+
+			<p>The final notebook folds the earlier layers together into a feature matrix and uses clustering to turn park profiles into broader environment archetypes. Emerge park types: Do similar pitching environments produce similar contact outcomes?</p>
+
+			<h3>Analysis Approach</h3>
+			<ul>
+				<li><strong>Feature engineering:</strong> Combine pitch mix, swing outcomes, and contact-quality signals into one feature matrix</li>
+				<li><strong>Clustering and labeling:</strong> Use diagnostics to choose a cluster count and translate clusters into readable names</li>
+			</ul>
+		</div>
+
+		<div class="section">
+			<h2>Closing Takeaways</h2>
+			<div class="callout">
+				The project's storyline is cumulative: parks vary most clearly in what gets thrown (79% show significant deviation), somewhat in how swings resolve, and most selectively in contact quality. The clustering step then turns those differences into a compact set of park archetypes.
+			</div>
+
+			<h3>Forward Questions</h3>
+			<ul>
+				<li>Do Milwaukee's heavy fastballs and St. Louis' sinkers produce measurably different swing outcomes?</li>
+				<li>When contact is made in these environments, does the contact quality differ systematically?</li>
+				<li>Can parks be grouped into meaningful archetypes that summarize their pitching identity?</li>
+				<li>Which parks create the "easiest" and "hardest" contact environments for hitters?</li>
+			</ul>
+		</div>
+	</main>
+</body>
+</html>
